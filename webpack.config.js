@@ -14,7 +14,7 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/index.html',
       filename: 'index.html',
-      favicon: 'assets/favicon.png',
+      favicon: './src/assets/favicon.png',
       title: 'Zappar Universal AR',
       minify: {
         collapseWhitespace: true,
@@ -39,7 +39,7 @@ module.exports = {
       },
 
       {
-        test: /\.(zpt|png|gif|glb|gltf|jpe?g|ogg|mp3|obj|fbx|wav|ttf|fnf|woff|stl|mp4|hdr|webm)$/,
+        test: /\.(zpt|png|gif|glb|gltf|jpe?g|ogg|mp3|obj|fbx|wav|ttf|fnf|woff|stl|mp4|hdr|webm|svg)$/,
         use: [{
           loader: 'file-loader',
           options: {
@@ -48,6 +48,7 @@ module.exports = {
           },
         }],
       },
+
       {
         test: /zcv\.wasm$/,
         type: 'javascript/auto',

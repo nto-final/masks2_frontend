@@ -1,124 +1,170 @@
-/// Zappar for ThreeJS Examples
-/// Face Tracking 3D Model
-
-// In this example we track a 3D model to the user's face
-
 import * as THREE from 'three';
 import * as ZapparThree from '@zappar/zappar-threejs';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import helmet from '../assets/z_helmet.glb';
+import mask1 from './assets/chert.glb';
+import mask2 from './assets/Mask2.glb';
+import mask3 from './assets/Mask3.glb';
 import './index.sass';
+import ZapparSharing from '@zappar/sharing';
+import previousSvg from "./assets/icons/previous.svg";
+import changeTextures from "./assets/icons/changeTextures.svg";
+import change from "./assets/icons/change.svg";
+import cam from "./assets/icons/cam.svg";
 
-// The SDK is supported on many different browsers, but there are some that
-// don't provide camera access. This function detects if the browser is supported
-// For more information on support, check out the readme over at
-// https://www.npmjs.com/package/@zappar/zappar-threejs
+
+
 if (ZapparThree.browserIncompatible()) {
-  // The browserIncompatibleUI() function shows a full-page dialog that informs the user
-  // they're using an unsupported browser, and provides a button to 'copy' the current page
-  // URL so they can 'paste' it into the address bar of a compatible alternative.
   ZapparThree.browserIncompatibleUI();
-
-  // If the browser is not compatible, we can avoid setting up the rest of the page
-  // so we throw an exception here.
   throw new Error('Unsupported browser');
 }
 
-// ZapparThree provides a LoadingManager that shows a progress bar while
-// the assets are downloaded. You can use this if it's helpful, or use
-// your own loading UI - it's up to you :-)
+let obects = [mask1, mask2, mask3]
+let currentObj = mask1;
 const manager = new ZapparThree.LoadingManager();
 
-// Construct our ThreeJS renderer and scene as usual
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true,  preserveDrawingBuffer: true });
 const scene = new THREE.Scene();
 document.body.appendChild(renderer.domElement);
+let nextBtn = document.getElementById("changeModel")
+let textureBtn = document.getElementById("changeTexture")
+let photoBtn = document.getElementById("takePhoto");
+let previousBtn = document.getElementById("previousBtn");
 
-// As with a normal ThreeJS scene, resize the canvas if the window resizes
+(nextBtn?.children[0] as any).src = change;
+(textureBtn?.children[0] as any).src = changeTextures;
+(photoBtn?.children[0] as any).src = cam;
+(previousBtn?.children[0] as any).src = previousSvg;
+
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Create a Zappar camera that we'll use instead of a ThreeJS camera
 const camera = new ZapparThree.Camera();
 
-// In order to use camera and motion data, we need to ask the users for permission
-// The Zappar library comes with some UI to help with that, so let's use it
+
 ZapparThree.permissionRequestUI().then((granted) => {
-  // If the user granted us the permissions we need then we can start the camera
-  // Otherwise let's them know that it's necessary with Zappar's permission denied UI
-  if (granted) camera.start(true); // true parameter for user facing camera
+
+  if (granted) camera.start(true); 
   else ZapparThree.permissionDeniedUI();
 });
 
-// The Zappar component needs to know our WebGL context, so set it like this:
 ZapparThree.glContextSet(renderer.getContext());
 
-// Set the background of our scene to be the camera background texture
-// that's provided by the Zappar camera
 scene.background = camera.backgroundTexture;
 
-// Create a FaceTracker and a FaceAnchorGroup from it to put Three content in
-// Pass our loading manager to the loader to ensure that the progress bar
-// works correctly
 const faceTracker = new ZapparThree.FaceTrackerLoader(manager).load();
 const faceTrackerGroup = new ZapparThree.FaceAnchorGroup(camera, faceTracker);
-// Add our face tracker group into the ThreeJS scene
+
 scene.add(faceTrackerGroup);
 
-// Start with the content group invisible
 faceTrackerGroup.visible = false;
 
-// We want the user's face to appear in the center of the helmet
-// so use ZapparThree.HeadMaskMesh to mask out the back of the helmet.
-// In addition to constructing here we'll call mask.updateFromFaceAnchorGroup(...)
-// in the frame loop later.
 const mask = new ZapparThree.HeadMaskMeshLoader().load();
 faceTrackerGroup.add(mask);
 
-// Load a 3D model to place within our group (using ThreeJS's GLTF loader)
-// Pass our loading manager in to ensure the progress bar works correctly
 const gltfLoader = new GLTFLoader(manager);
-gltfLoader.load(helmet, (gltf) => {
-  // Position the loaded content to overlay user's face
-  gltf.scene.position.set(0.3, -1.3, 0);
-  gltf.scene.scale.set(1.1, 1.1, 1.1);
+let mixer:any;
 
-  // Add the scene to the tracker group
+gltfLoader.load(mask1, (gltf) => {
+  currentObj = mask1
+   mixer = new THREE.AnimationMixer(gltf.scene)
+
+  const animationAction = mixer.clipAction((gltf as any).animations[0])
+  animationAction.play()
+  gltf.scene.position.set(0, 0, 0);
+  gltf.scene.scale.set(2.1, 2.1, 2.1);
   faceTrackerGroup.add(gltf.scene);
 }, undefined, () => {
   console.log('An error ocurred loading the GLTF model');
 });
 
-// Let's add some lighting, first a directional light above the model pointing down
-const directionalLight = new THREE.DirectionalLight('white', 0.8);
-directionalLight.position.set(0, 5, 0);
+
+
+const directionalLight = new THREE.DirectionalLight('white', 3);
+directionalLight.position.set(0, 5, 7);
 directionalLight.lookAt(0, 0, 0);
 scene.add(directionalLight);
 
-// And then a little ambient light to brighten the model up a bit
 const ambeintLight = new THREE.AmbientLight('white', 0.4);
 scene.add(ambeintLight);
 
-// Hide the 3D content when the face is out of view
 faceTrackerGroup.faceTracker.onVisible.bind(() => { faceTrackerGroup.visible = true; });
 faceTrackerGroup.faceTracker.onNotVisible.bind(() => { faceTrackerGroup.visible = false; });
 
-// Use a function to render our scene as usual
-function render(): void {
-  // The Zappar camera must have updateFrame called every frame
-  camera.updateFrame(renderer);
+function loadModel(){
+  faceTrackerGroup.remove(faceTrackerGroup.children[faceTrackerGroup.children.length - 1])
+  let ind = obects.indexOf(currentObj) + 1
+  if (ind == 3){
+    ind = 0
+  }
+  currentObj = obects[ind]
+  gltfLoader.load(obects[ind], (gltf) => {
+    mixer = new THREE.AnimationMixer(gltf.scene)
+    const animationAction = mixer.clipAction(gltf.animations[0])
+    animationAction.play()
+    gltf.scene.position.set(0, 0, 0);
+    gltf.scene.scale.set(2.1, 2.1, 2.1);
+    faceTrackerGroup.add(gltf.scene);
+  }, undefined, () => {
+    console.log('An error ocurred loading the GLTF model');
+  });
+}
+nextBtn?.addEventListener('click',loadModel)
+const clock = new THREE.Clock()
 
-  // Update the head mask so it fits the user's head in this frame
-  mask.updateFromFaceAnchorGroup(faceTrackerGroup);
+var textureLoader = new THREE.TextureLoader(manager);
+let textures : any[] = [];
+let currentTexture = textureLoader.load('https://threejs.org/examples/textures/uv_grid_opengl.jpg');
 
-  // Draw the ThreeJS scene in the usual way, but using the Zappar camera
-  renderer.render(scene, camera);
+textures.push(
+  textureLoader.load('https://threejs.org/examples/textures/uv_grid_opengl.jpg'),
+  textureLoader.load('https://threejs.org/examples/textures/colors.png')
+);
 
-  // Call render() again next frame
-  requestAnimationFrame(render);
+
+function changeTexture(){
+  let ind = textures.indexOf(currentTexture) == 1? 0:1
+
+  faceTrackerGroup.children[faceTrackerGroup.children.length - 1].traverse(function(child:any) {
+
+    currentTexture = textures[ind]
+    if (child.isMesh) {
+      child.material.map = currentTexture;
+    }
+  });
 }
 
-// Start things off
+textureBtn?.addEventListener("click", changeTexture);
+
+photoBtn?.addEventListener('click', () => {
+  const canvas = document.getElementsByTagName('canvas')[0];
+
+  const url = canvas?.toDataURL();
+  ZapparSharing({
+    data: url!,
+    fileNamePrepend: 'pyc',
+  }, {
+    containerDiv : {
+      zIndex: '10003',
+    },
+  },
+  {
+    
+    TapAndHoldToSave: 'Скачайте или поделитесь фото',
+    SAVE: 'Скачать',
+    SHARE: 'Поделится',
+  }
+  );
+});
+function render(): void {
+  camera.updateFrame(renderer);
+  mask.updateFromFaceAnchorGroup(faceTrackerGroup);
+  renderer.render(scene, camera);
+  requestAnimationFrame(render);
+  mixer.update(clock.getDelta())
+}
+
+
 render();
